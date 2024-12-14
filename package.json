@@ -1,12 +1,19 @@
 {
   "name": "docker-with-nextjs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
+  "dockerUsername": "beyenilmez",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5918",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start -p 5918",
+    "lint": "next lint",
+    "docker:dev": "docker-compose -f docker-compose-dev.yml up --watch --build",
+    "docker:prod": "docker-compose -f docker-compose-prod.yml up -d --build",
+    "docker:down": "docker-compose -f docker-compose-prod.yml down",
+    "docker:build": "docker-compose -f docker-compose-prod.yml build",
+    "docker:publish": "node scripts/publish.js"
   },
   "dependencies": {
     "react": "^18",

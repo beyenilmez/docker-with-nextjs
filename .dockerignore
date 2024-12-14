@@ -1,4 +1,9 @@
-next.config.mjs
 .git
+.next
+node_modules
 .gitignore
-Dockerfile
+docker-compose-dev.yml
+docker-compose-prod.yml
+Dockerfile.dev
+Dockerfile.prod
+next-env.d.ts

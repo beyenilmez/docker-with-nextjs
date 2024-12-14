@@ -4,6 +4,20 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
-    volumes:
-      - .:/src
+      - "5918:5918"
+    develop:
+      watch:
+        - action: sync
+          path: . # Watch the root directory (source files)
+          target: /app # Sync changes to the app directory inside the container
+          ignore:
+            - .git/
+            - .next/
+            - node_modules/
+            - .gitignore
+            -  docker-compose-dev.yml
+            -  docker-compose-prod.yml
+            -  Dockerfile.dev
+            -  Dockerfile.prod
+        - action: rebuild
+          path: package.json # Triggers rebuild if dependencies change

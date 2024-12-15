@@ -197,11 +197,11 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
         response.images = getRandomItems(images, imageCount, sortType, sortOrder) || null;
       }
 
-      if (quoteCount === 1) {
+      if ((searchParams.get("quote_count") || searchParams.get("count")) && quoteCount === 1) {
         response.quote = response.quotes?.[0] || null;
         delete response.quotes;
       }
-      if (imageCount === 1) {
+      if ((searchParams.get("image_count") || searchParams.get("count")) && imageCount === 1) {
         response.image = response.images?.[0] || null;
         delete response.images;
       }

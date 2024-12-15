@@ -1,4 +1,9 @@
 {
   "id": "suleyman-cakir",
-  "name": "Süleyman Çakır"
+  "name": "Süleyman Çakır",
+  "nickname": "Çakır",
+  "birthdate": "1964-xx-xx",
+  "deathDate": "2004-04-08",
+  "occupations": ["Kabadayı", "Mafya babası"],
+  "titles": ["İstanbul sefiri"]
 }

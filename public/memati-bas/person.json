@@ -1,4 +1,9 @@
 {
   "id": "memati-bas",
-  "name": "Memati Baş"
+  "name": "Memati Baş",
+  "nickname": "Ortak",
+  "birthdate": "xxxx-xx-xx",
+  "deathDate": "2012-05-31",
+  "occupations": ["Mafya", "Devlet görevlisi"],
+  "titles": []
 }

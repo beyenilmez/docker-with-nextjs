@@ -1,4 +1,9 @@
 {
   "id": "abdulhey-coban",
-  "name": "Abdülhey Çoban"
+  "name": "Abdülhey Çoban",
+  "nickname": "Abdül",
+  "birthdate": "1975-xx-xx",
+  "deathDate": "2014-xx-xx",
+  "occupations": ["Devlet Görevlisi"],
+  "titles": []
 }

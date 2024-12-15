@@ -76,8 +76,9 @@ const getMatchingPersonId = async (keyword: string): Promise<string | null> => {
 export async function GET(req: Request, { params }: { params: { person_id: string } }) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "default"; // Default behavior
-  const quoteCount = parseInt(searchParams.get("quote_count") || "1", 10); // Quote-specific count
-  const imageCount = parseInt(searchParams.get("image_count") || "1", 10); // Image-specific count
+  const count = parseInt(searchParams.get("count") || "1", 10);
+  const quoteCount = parseInt(searchParams.get("quote_count") || count.toString(), 10); // Quote-specific count
+  const imageCount = parseInt(searchParams.get("image_count") || count.toString(), 10); // Image-specific count
   const includeQuotes = type === "combo" || searchParams.get("include_quotes") !== "false"; // Default: include quotes
   const includeImages = type === "combo" || searchParams.get("include_images") !== "false"; // Default: include images
   const quoteQuery = searchParams.get("quote_query") || ""; // Keyword for search
@@ -189,11 +190,20 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
         delete response.quotes;
       }
 
-      if (quoteCount != 1) {
+      if (searchParams.get("quote_count") || searchParams.get("count")) {
         response.quotes = getRandomItems(quotes, quoteCount, sortType, sortOrder) || null;
       }
-      if (imageCount != 1) {
+      if (searchParams.get("image_count") || searchParams.get("count")) {
         response.images = getRandomItems(images, imageCount, sortType, sortOrder) || null;
+      }
+
+      if (quoteCount === 1) {
+        response.quote = response.quotes?.[0] || null;
+        delete response.quotes;
+      }
+      if (imageCount === 1) {
+        response.image = response.images?.[0] || null;
+        delete response.images;
       }
 
       return NextResponse.json(response);
@@ -201,7 +211,7 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
 
     if (type === "combo") {
       const result = [];
-      const generatedQuotes = getRandomItems(quotes, quoteCount, sortType, sortOrder).map((quote) => quote || null);
+      const generatedQuotes = getRandomItems(quotes, count, sortType, sortOrder).map((quote) => quote || null);
 
       for (const quote of generatedQuotes) {
         const image = getRandomItems(images, 1, sortType, sortOrder)[0] || null;
@@ -209,7 +219,7 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
       }
 
       // Handle single combo case
-      if (quoteCount === 1) {
+      if (count === 1) {
         const singleCombo = result[0];
         return NextResponse.json({
           ...personData,

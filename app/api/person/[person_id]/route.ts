@@ -57,6 +57,8 @@ const getMatchingPersonId = async (keyword: string): Promise<string | null> => {
     const entries = await fs.readdir(publicPath, { withFileTypes: true });
     const personDirs = entries.filter((entry) => entry.isDirectory());
 
+    personDirs.sort(() => 0.5 - Math.random());
+
     for (const dir of personDirs) {
       const quotesPath = path.join(publicPath, dir.name, "quotes.json");
       const quotes = await readJsonFile(quotesPath).then((data) => data.quotes || []);
@@ -74,20 +76,49 @@ const getMatchingPersonId = async (keyword: string): Promise<string | null> => {
 export async function GET(req: Request, { params }: { params: { person_id: string } }) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "default"; // Default behavior
-  const count = parseInt(searchParams.get("count") || "1", 10); // Default count
-  const includeQuotes = type === "combo" || searchParams.get("includeQuotes") !== "false"; // Default: include quotes
-  const includeImages = type === "combo" || searchParams.get("includeImages") !== "false"; // Default: include images
-  const searchKeyword = searchParams.get("search") || ""; // Keyword for search
+  const quoteCount = parseInt(searchParams.get("quote_count") || "1", 10); // Quote-specific count
+  const imageCount = parseInt(searchParams.get("image_count") || "1", 10); // Image-specific count
+  const includeQuotes = type === "combo" || searchParams.get("include_quotes") !== "false"; // Default: include quotes
+  const includeImages = type === "combo" || searchParams.get("include_images") !== "false"; // Default: include images
+  const quoteQuery = searchParams.get("quote_query") || ""; // Keyword for search
   const sortType = searchParams.get("sort") || ""; // Sorting type
   const sortOrder = searchParams.get("order") || "asc"; // Sorting order (asc/desc)
   let personId = params.person_id;
 
+  if (personId === "all") {
+    // Read the person directories
+    const entries = await fs.readdir(publicPath, { withFileTypes: true });
+    const personDirs = entries.filter((entry) => entry.isDirectory());
+
+    personDirs.sort(() => 0.5 - Math.random());
+
+    // Fetch data for all persons
+    let responses: any[] = await Promise.all(
+      personDirs.map(
+        (dir) =>
+          GET(req, { params: { person_id: dir.name, ...Object.fromEntries(searchParams) } })
+            .then((response) => response.json())
+            .catch(() => null) // Handle any errors gracefully
+      )
+    );
+
+    // Filter responses based on quoteQuery
+    if (quoteQuery) {
+      responses = responses.filter((data) => {
+        if (!data) return false; // Skip null responses
+        return data.quote || (data.totalQuotes && data.totalQuotes > 0);
+      });
+    }
+
+    return NextResponse.json(responses);
+  }
+
   // Handle random person case with search
   if (personId === "random") {
-    if (searchKeyword) {
-      const matchingPersonId = await getMatchingPersonId(searchKeyword);
+    if (quoteQuery) {
+      const matchingPersonId = await getMatchingPersonId(quoteQuery);
       if (!matchingPersonId) {
-        return NextResponse.json({ error: `No persons found with keyword: ${searchKeyword}` }, { status: 404 });
+        return NextResponse.json({ error: `No persons found with keyword: ${quoteQuery}` }, { status: 404 });
       } else {
         personId = matchingPersonId;
       }
@@ -124,8 +155,8 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
     let quotes = includeQuotes ? await readJsonFile(quotesJsonPath).then((data) => data.quotes || []) : [];
 
     // Apply search filter for quotes
-    if (searchKeyword) {
-      quotes = quotes.filter((quote: string) => quote.toLowerCase().includes(searchKeyword.toLowerCase()));
+    if (quoteQuery) {
+      quotes = quotes.filter((quote: string) => quote.toLowerCase().includes(quoteQuery.toLowerCase()));
     }
 
     // Read images
@@ -158,12 +189,19 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
         delete response.quotes;
       }
 
+      if (quoteCount != 1) {
+        response.quotes = getRandomItems(quotes, quoteCount, sortType, sortOrder) || null;
+      }
+      if (imageCount != 1) {
+        response.images = getRandomItems(images, imageCount, sortType, sortOrder) || null;
+      }
+
       return NextResponse.json(response);
     }
 
     if (type === "combo") {
       const result = [];
-      const generatedQuotes = getRandomItems(quotes, count, sortType, sortOrder).map((quote) => quote || null);
+      const generatedQuotes = getRandomItems(quotes, quoteCount, sortType, sortOrder).map((quote) => quote || null);
 
       for (const quote of generatedQuotes) {
         const image = getRandomItems(images, 1, sortType, sortOrder)[0] || null;
@@ -171,7 +209,7 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
       }
 
       // Handle single combo case
-      if (count === 1) {
+      if (quoteCount === 1) {
         const singleCombo = result[0];
         return NextResponse.json({
           ...personData,
@@ -191,7 +229,7 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
     }
 
     if (type === "quote") {
-      if (count === 1) {
+      if (quoteCount === 1) {
         return NextResponse.json({
           ...personData,
           totalQuotes,
@@ -202,12 +240,12 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
       return NextResponse.json({
         ...personData,
         totalQuotes,
-        quotes: getRandomItems(quotes, count, sortType, sortOrder),
+        quotes: getRandomItems(quotes, quoteCount, sortType, sortOrder),
       });
     }
 
     if (type === "image") {
-      if (count === 1) {
+      if (imageCount === 1) {
         return NextResponse.json({
           ...personData,
           totalImages,
@@ -218,7 +256,7 @@ export async function GET(req: Request, { params }: { params: { person_id: strin
       return NextResponse.json({
         ...personData,
         totalImages,
-        images: getRandomItems(images, count, sortType, sortOrder),
+        images: getRandomItems(images, imageCount, sortType, sortOrder),
       });
     }
 

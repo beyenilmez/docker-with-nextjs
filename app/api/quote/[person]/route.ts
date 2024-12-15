@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 
+const publicPath = path.join(process.cwd(), "public");
+
 // Utility to fetch random items
 const getRandomItems = (arr: any[], count: number) => {
   if (!Array.isArray(arr)) {
@@ -31,31 +33,28 @@ const readJsonFile = async (filePath: string) => {
 export async function GET(req: Request, { params }: { params: { person: string } }) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "default"; // Default API call
-  const count = parseInt(searchParams.get("count") || "1", 10); // Default count: 1
+  const count = parseInt(searchParams.get("count") || "1", 10); // General fallback count
+  const quoteCount = parseInt(searchParams.get("quoteCount") || count.toString(), 10); // Quote-specific count
+  const imageCount = parseInt(searchParams.get("imageCount") || count.toString(), 10); // Image-specific count
   const person = params.person;
 
-  const basePath = path.join(process.cwd(), "public", person);
+  const personPath = path.join(publicPath, person);
+  const quotesFilePath = path.join(personPath, "quotes.json");
+  const imagesFolderPath = path.join(personPath, "images");
 
   try {
-    if (!person) {
-      return NextResponse.json({ error: "Person is required" }, { status: 400 });
-    }
-
-    const folderExists = await fs.stat(basePath).catch(() => false);
+    // Ensure the person directory exists
+    const folderExists = await fs.stat(personPath).catch(() => false);
     if (!folderExists) {
       return NextResponse.json({ error: `No data found for person: ${person}` }, { status: 404 });
     }
 
-    // Read quotes
-    const quotesFilePath = path.join(basePath, "quotes.json");
+    // Fetch quotes and images for the specific person
     const quotes = await readJsonFile(quotesFilePath);
-
-    // Read images
-    const imagesFolderPath = path.join(basePath, "images");
     const imageFiles = await fs.readdir(imagesFolderPath).catch(() => []);
-    const images = imageFiles.map((file) => `/${person}/images/${file}`);
+    const images = imageFiles.map((file) => path.posix.join("/", person, "images", file));
 
-    // Default behavior: Return `count` times the JSON object with `quote` and `image`
+    // Default behavior: Return `count` random quote-image pairs
     if (type === "default") {
       const result = [];
       for (let i = 0; i < count; i++) {
@@ -66,23 +65,18 @@ export async function GET(req: Request, { params }: { params: { person: string }
       return NextResponse.json(result);
     }
 
-    // Handle specific requests for quotes
+    // Specific types: quote, image, or both
     if (type === "quote") {
-      const selectedQuotes = getRandomItems(quotes, count);
-      return NextResponse.json({ quotes: selectedQuotes });
+      return NextResponse.json({ quotes: getRandomItems(quotes, count) });
     }
-
-    // Handle specific requests for images
     if (type === "image") {
-      const selectedImages = getRandomItems(images, count);
-      return NextResponse.json({ images: selectedImages });
+      return NextResponse.json({ images: getRandomItems(images, count) });
     }
-
-    // Handle both quotes and images
     if (type === "both") {
-      const selectedQuotes = getRandomItems(quotes, count);
-      const selectedImages = getRandomItems(images, count);
-      return NextResponse.json({ quotes: selectedQuotes, images: selectedImages });
+      return NextResponse.json({
+        quotes: getRandomItems(quotes, quoteCount),
+        images: getRandomItems(images, imageCount),
+      });
     }
 
     return NextResponse.json({ error: "Invalid type or request" }, { status: 400 });

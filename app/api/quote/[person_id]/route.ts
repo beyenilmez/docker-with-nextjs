@@ -5,6 +5,10 @@ import { GET as getRandomPerson } from "../../person/[person_id]/route";
 
 export async function GET(req: NextRequest, { params }: { params: { person_id: string } }) {
   try {
+    if (params.person_id === "all") {
+      return new NextResponse("Invalid person ID", { status: 400 });
+    }
+
     // Step 1: Fetch and parse query parameters
     const url = new URL(req.url);
     const sizeParam = url.searchParams.get("size") || "800x500";
@@ -23,6 +27,17 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     // Text Size Scaling Factor
     const textSizeScale = parseFloat(url.searchParams.get("text_size") || "1");
 
+    const quoteText = url.searchParams.get("quote") || "";
+    const authorText = url.searchParams.get("author") || "";
+    let imageName = url.searchParams.get("image") || "";
+    if (params.person_id === "random" && !(imageName.startsWith("http://") || imageName.startsWith("https://"))) {
+      imageName = "";
+    }
+
+    const showDate = url.searchParams.has("date") ? url.searchParams.get("date") === "true" : true;
+    const birthDateText = url.searchParams.get("birthdate") || "";
+    const deathDateText = url.searchParams.get("deathdate") || "";
+
     const format = url.searchParams.get("format") || "jpeg";
     if (format !== "png" && format !== "jpeg" && format !== "webp" && format !== "avif") {
       return new NextResponse("Unsupported format", { status: 400 });
@@ -36,17 +51,39 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     const modifiedRequest = new NextRequest(url.toString(), { method: req.method, headers: req.headers });
 
     const response = await getRandomPerson(modifiedRequest, { params: { person_id: params.person_id } });
-    const data = await response.json();
+    const data =
+      params.person_id === "custom"
+        ? {
+            quote: quoteText,
+            image: imageName,
+            name: authorText,
+            birthdate: birthDateText ? birthDateText : "?",
+            deathDate: deathDateText ? deathDateText : "?",
+          }
+        : await response.json();
 
-    if (!data.quote || !data.image) {
+    if (params.person_id !== "custom" && (!data.quote || !data.image)) {
       return new NextResponse("Failed to fetch quote or image", { status: 500 });
     }
 
-    const { quote, name, nickname, image, birthdate, deathDate } = data;
-    const lifeSpan = deathDate ? `${birthdate.slice(0, 4)} - ${deathDate.slice(0, 4)}` : birthdate.slice(0, 4);
+    const { quote, name, image, birthdate, deathDate } = data;
+    const lifeSpan =
+      deathDateText || deathDate
+        ? `${(birthDateText || birthdate).slice(0, 4)} - ${(deathDateText || deathDate).slice(0, 4)}`
+        : birthDateText || birthdate.slice(0, 4);
 
     // Step 3: Load the background image
-    const imagePath = path.join(process.cwd(), "public", image);
+    let imagePath = path.join(
+      process.cwd(),
+      "public",
+      imageName ? path.join(params.person_id, "images", imageName) : image
+    );
+
+    // Check if imageName is a url
+    if (imageName.startsWith("http://") || imageName.startsWith("https://")) {
+      imagePath = imageName;
+    }
+
     const background = await loadImage(imagePath);
 
     // Calculate aspect-ratio-preserving dimensions
@@ -90,7 +127,7 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
 
     let currentY = pt + lineSpacing;
     let line = "";
-    const words = quote.split(" ");
+    const words = (quoteText || quote).split(" ");
 
     for (const word of words) {
       const testLine = line + word + " ";
@@ -108,7 +145,11 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
 
     // Write the author's name (bottom-left with bottom and left padding)
     ctx.font = authorFont;
-    ctx.fillText(`- ${name} ${deathDate ? "(" + lifeSpan.replace("xxxx", "?") + ")" : ""}`, pl, canvasHeight - pb);
+    ctx.fillText(
+      `- ${authorText || name} ${showDate && deathDate ? "(" + lifeSpan.replace("xxxx", "?") + ")" : ""}`,
+      pl,
+      canvasHeight - pb
+    );
 
     // @ts-ignore
     const buffer = canvas.toBuffer("image/" + format);

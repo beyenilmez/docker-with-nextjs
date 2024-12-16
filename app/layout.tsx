@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,10 +19,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <Header />
-        <div className="px-4 sm:px-8 md:px-16 lg:px-44 xl:px-72">{children}</div>
-        <Footer />
+      <body className={inter.className + " flex flex-col w-full items-center px-4 sm:px-8 md:px-16 lg:px-44 xl:px-64"}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <Header />
+          <div>{children}</div>
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   );

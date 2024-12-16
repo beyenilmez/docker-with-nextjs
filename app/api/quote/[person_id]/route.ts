@@ -23,6 +23,11 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     // Text Size Scaling Factor
     const textSizeScale = parseFloat(url.searchParams.get("text_size") || "1");
 
+    const format = url.searchParams.get("format") || "jpeg";
+    if (format !== "png" && format !== "jpeg" && format !== "webp") {
+      return new NextResponse("Unsupported format", { status: 400 });
+    }
+
     const [canvasWidth, canvasHeight] = sizeParam.split("x").map(Number);
 
     // Step 2: Fetch the quote and image data
@@ -69,7 +74,6 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     const baseFontSize = (canvasHeight / 15) * textSizeScale; // Base font size scaled
     const quoteFontSize = Math.max(baseFontSize, 12); // Minimum font size 12px
     const authorFontSize = Math.max(baseFontSize * 0.7, 10); // Smaller font for author
-    const yearFontSize = Math.max(baseFontSize * 0.6, 10);
 
     ctx.fillStyle = textColor; // Use the dynamic color
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
@@ -78,7 +82,6 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     // Font Styles
     const quoteFont = `bold ${quoteFontSize}px Montserrat`;
     const authorFont = `${authorFontSize}px Poppins`;
-    const yearFont = `${yearFontSize}px Poppins`;
 
     // Write the quote (upper-left with top padding)
     ctx.font = quoteFont;
@@ -105,18 +108,13 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
 
     // Write the author's name (bottom-left with bottom and left padding)
     ctx.font = authorFont;
-    ctx.fillText(`- ${name} (${nickname})`, pl, canvasHeight - pb);
+    ctx.fillText(`- ${name} ${deathDate ? "(" + lifeSpan.replace("xxxx", "?") + ")" : ""}`, pl, canvasHeight - pb);
 
-    // Write the life span (bottom-right with bottom and right padding)
-    ctx.font = yearFont;
-    ctx.textAlign = "right";
-    ctx.fillText(lifeSpan.replace("xxxx", "?"), canvasWidth - pr, canvasHeight - pb);
-
-    // Step 5: Return the image
-    const buffer = canvas.toBuffer("image/png");
+    // @ts-ignore
+    const buffer = canvas.toBuffer("image/" + format);
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type": "image/" + format,
       },
     });
   } catch (error) {

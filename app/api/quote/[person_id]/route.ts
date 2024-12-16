@@ -5,15 +5,30 @@ import { GET as getRandomPerson } from "../../person/[person_id]/route";
 
 export async function GET(req: NextRequest, { params }: { params: { person_id: string } }) {
   try {
-    // Step 1: Fetch the quote and image data
+    // Step 1: Fetch and parse query parameters
     const url = new URL(req.url);
+    const sizeParam = url.searchParams.get("size") || "800x500";
+    const rawColor = url.searchParams.get("color") || "FFFFFF"; // Default white
+    const textColor = `#${rawColor}`; // Add "#" prefix
+
+    // Padding Parameters
+    const generalPadding = parseInt(url.searchParams.get("p") || "70");
+    const px = parseInt(url.searchParams.get("px") || String(generalPadding));
+    const py = parseInt(url.searchParams.get("py") || String(generalPadding));
+    const pt = parseInt(url.searchParams.get("pt") || String(py));
+    const pb = parseInt(url.searchParams.get("pb") || String(py));
+    const pl = parseInt(url.searchParams.get("pl") || String(px));
+    const pr = parseInt(url.searchParams.get("pr") || String(px));
+
+    // Text Size Scaling Factor
+    const textSizeScale = parseFloat(url.searchParams.get("text_size") || "1");
+
+    const [canvasWidth, canvasHeight] = sizeParam.split("x").map(Number);
+
+    // Step 2: Fetch the quote and image data
     url.searchParams.set("type", "combo");
     url.searchParams.set("count", "1");
-
-    const modifiedRequest = new NextRequest(url.toString(), {
-      method: req.method,
-      headers: req.headers,
-    });
+    const modifiedRequest = new NextRequest(url.toString(), { method: req.method, headers: req.headers });
 
     const response = await getRandomPerson(modifiedRequest, { params: { person_id: params.person_id } });
     const data = await response.json();
@@ -25,14 +40,11 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     const { quote, name, nickname, image, birthdate, deathDate } = data;
     const lifeSpan = deathDate ? `${birthdate.slice(0, 4)} - ${deathDate.slice(0, 4)}` : birthdate.slice(0, 4);
 
-    const canvasWidth = 800;
-    const canvasHeight = 500;
-
-    // Step 2: Load the background image
+    // Step 3: Load the background image
     const imagePath = path.join(process.cwd(), "public", image);
     const background = await loadImage(imagePath);
 
-    // Calculate dimensions to maintain aspect ratio
+    // Calculate aspect-ratio-preserving dimensions
     const imageRatio = background.width / background.height;
     let drawWidth = canvasWidth;
     let drawHeight = canvasWidth / imageRatio;
@@ -45,61 +57,62 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     const offsetX = (canvasWidth - drawWidth) / 2;
     const offsetY = (canvasHeight - drawHeight) / 2;
 
-    // Create the canvas
+    // Step 4: Create canvas and draw the image
     const canvas = createCanvas(canvasWidth, canvasHeight);
     const ctx = canvas.getContext("2d");
 
-    // Draw the image without distortion
     ctx.drawImage(background, offsetX, offsetY, drawWidth, drawHeight);
-
-    // Add a dark overlay
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Set text styles and layout spacing
-    const marginX = 50;
-    const topMargin = 120;
-    const bottomMargin = 80;
-    const lineSpacing = 45;
+    // Dynamic text sizes based on canvas dimensions
+    const baseFontSize = (canvasHeight / 15) * textSizeScale; // Base font size scaled
+    const quoteFontSize = Math.max(baseFontSize, 12); // Minimum font size 12px
+    const authorFontSize = Math.max(baseFontSize * 0.7, 10); // Smaller font for author
+    const yearFontSize = Math.max(baseFontSize * 0.6, 10);
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = textColor; // Use the dynamic color
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
     ctx.shadowBlur = 4;
 
     // Font Styles
-    const quoteFont = "bold 32px Montserrat";
-    const authorFont = "24px Poppins";
-    const yearFont = "20px Poppins";
+    const quoteFont = `bold ${quoteFontSize}px Montserrat`;
+    const authorFont = `${authorFontSize}px Poppins`;
+    const yearFont = `${yearFontSize}px Poppins`;
 
-    // Write the quote (upper-left)
+    // Write the quote (upper-left with top padding)
     ctx.font = quoteFont;
-    const quoteLines = quote.split(" ");
-    let currentY = topMargin;
-    let line = "";
+    const maxTextWidth = canvasWidth - pl - pr;
+    const lineSpacing = quoteFontSize * 1.2;
 
-    for (const word of quoteLines) {
+    let currentY = pt + lineSpacing;
+    let line = "";
+    const words = quote.split(" ");
+
+    for (const word of words) {
       const testLine = line + word + " ";
       const testWidth = ctx.measureText(testLine).width;
 
-      if (testWidth > canvasWidth - 2 * marginX) {
-        ctx.fillText(line, marginX, currentY);
+      if (testWidth > maxTextWidth) {
+        ctx.fillText(line, pl, currentY);
         line = word + " ";
         currentY += lineSpacing;
       } else {
         line = testLine;
       }
     }
-    ctx.fillText(line, marginX, currentY);
+    ctx.fillText(line, pl, currentY);
 
-    // Write the author's name and nickname (bottom-left)
+    // Write the author's name (bottom-left with bottom and left padding)
     ctx.font = authorFont;
-    ctx.fillText(
-      `- ${name} ${deathDate ? "(" + lifeSpan.replace("xxxx", "?") + ")" : ""}`,
-      marginX,
-      canvasHeight - bottomMargin
-    );
+    ctx.fillText(`- ${name} (${nickname})`, pl, canvasHeight - pb);
 
-    // Step 3: Return the image
+    // Write the life span (bottom-right with bottom and right padding)
+    ctx.font = yearFont;
+    ctx.textAlign = "right";
+    ctx.fillText(lifeSpan.replace("xxxx", "?"), canvasWidth - pr, canvasHeight - pb);
+
+    // Step 5: Return the image
     const buffer = canvas.toBuffer("image/png");
     return new NextResponse(buffer, {
       headers: {

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { person_id: s
     const textSizeScale = parseFloat(url.searchParams.get("text_size") || "1");
 
     const format = url.searchParams.get("format") || "jpeg";
-    if (format !== "png" && format !== "jpeg" && format !== "webp") {
+    if (format !== "png" && format !== "jpeg" && format !== "webp" && format !== "avif") {
       return new NextResponse("Unsupported format", { status: 400 });
     }
 

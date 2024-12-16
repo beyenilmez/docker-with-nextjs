@@ -16,6 +16,7 @@
     "docker:publish": "node scripts/publish.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.65",
     "@radix-ui/react-collapsible": "^1.1.2",
     "@radix-ui/react-separator": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.1",
